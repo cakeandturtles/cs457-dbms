@@ -11,7 +11,7 @@ var main = function(){
 	}
 	var resultsObject = QueryData(queryObject);
 	if (resultsObject === null) return null;
-	//PopulateTable(result_array);
+	PopulateTable(resultsObject);
 }
 
 var ParseQuery = function(query){	
@@ -30,6 +30,9 @@ var ParseQuery = function(query){
 			}
 		}else{
 			from_clause = query.slice(from_index).trim();
+			if (from_clause[from_clause.length-1] === ";"){
+				from_clause = from_clause.slice(0, from_clause.length-1);
+			}
 		}
 	}
 	else{
@@ -62,7 +65,7 @@ var ParseQuery = function(query){
 				cond_array.splice(i, 1);
 		}
 	}
-	if (cond_array[0].trim() === ""){
+	if (cond_array && cond_array[0].trim() === ""){
 		var error = "Query not properly formed.<br/><i>Empty WHERE clause.</i>";
 		document.getElementById("result_table").innerHTML = error;
 		return null;
@@ -85,8 +88,42 @@ var QueryData = function(query){
 		document.getElementById("result_table").innerHTML = error;
 		return null;
 	}
-	//Now, project selected columns (get rid of the rest...)
 	
+	//Now, project selected columns (get rid of the rest...)
+	var all_cols = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "C4"];
+	for (var i = 0; i < query.column_array.length; i++){
+		var found_col = false;
+		for (var j = 0; j < all_cols.length; j++){
+			if (all_cols[j].trim() == query.column_array[i].trim()){
+				found_col = true;
+				break;
+			}
+		}
+		if (!found_col){
+			var error = "Query not properly formed.<br/><i>Invalid column in SELECT clause.</i>";
+			document.getElementById("result_table").innerHTML = error;
+			return null;
+		}
+	}
+	
+	for (var table in selected_data){
+		if (selected_data[table]){
+			for (var col in selected_data[table][0]){
+				var found_col = false;
+				for (var i = 0; i < query.column_array.length; i++){
+					if (query.column_array[i].trim() === col.trim()){
+						found_col = true;
+					}
+				}
+				if (!found_col){
+					for (var i = 0; i < selected_data[table].length; i++){
+						delete selected_data[table][i][col];
+					}
+				}
+			}
+		}
+	}
+	return selected_data;
 };
 
 var LoadFiles = function(query){
@@ -134,15 +171,31 @@ var SelectData = function(query, raw_data){
 			elems[1] = elems[1].trim();
 			var table1 = SearchForTable(raw_data, elems[0]);
 			var table2 = SearchForTable(raw_data, elems[1]);
-			if (table1 === null || table2 === null){
+			var value;
+			if (table1 === null){
 				return null;
+			}else if (table2 === null){
+				try{
+					value = eval(elems[1]);
+				}catch(err){
+					return null;
+				}
 			}
 			
-			if (table1.name !== table2.name){
+			if (value){
+				new_table = table1.name;
+				refined_data[new_table] = [];
+				for (var j = 0; j < table1.table.length; j++){
+					if (eval(table1.table[j][elems[0]]) == value){
+						refined_data[new_table].push(table1.table[j]);
+					}
+				}
+				delete raw_data[table1.name];
+			}else if (table1.name !== table2.name){
 				new_table = table1.name + table2.name
 				refined_data[new_table] = [];
-				for (var j = 0; j < table1.length; j++){
-					for (var k = 0; k < table2.length; k++){
+				for (var j = 0; j < table1.table.length; j++){
+					for (var k = 0; k < table2.table.length; k++){
 						if (table1.table[j][elems[0]] == table2.table[k][elems[1]]){
 							var new_row = {};
 							for (var col in table1.table[j]){ 
@@ -156,6 +209,7 @@ var SelectData = function(query, raw_data){
 						}
 					}
 				}
+				
 				delete raw_data[table1.name];
 				delete raw_data[table2.name];
 			}
@@ -180,17 +234,13 @@ var SelectData = function(query, raw_data){
 			}
 			
 			raw_data = refined_data;
-			for (var table in refined_data){
-				alert(table);
-			}
-			alert("ON TO THE NEXT LOOP :)");
 		}
 	}
-	
 	return raw_data; //Not really raw anymore...
 }
 
 var SearchForTable = function(data, col_name){
+	//This can really only work because each table has unique column names
 	var all_cols = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "C4"];
 	var found_col = false;
 	for (var i = 0; i < all_cols.length; i++){
@@ -216,6 +266,54 @@ var SearchForTable = function(data, col_name){
 	return null;
 };
 
-var PopulateTable = function(result_data){
-	return false;
+var PopulateTable = function(results){
+	var max_length = 0;
+	for (var table in results){
+		if (results[table]){
+			if (results[table].length > max_length)
+				max_length = results[table].length;
+		}
+	}
+	if (max_length === 0){
+		var error = "<i>Query returned no rows.</i>";
+		document.getElementById("result_table").innerHTML = error;
+		return false;
+	}
+
+	var table_text = "";
+	//PRINT OUT COL NAMES
+	table_text += "<tr>";
+	for (var table in results){
+		if (results[table]){
+			for (var col in results[table][0]){
+				table_text += "<th>";
+				table_text += col;
+				table_text += "</th>";
+			}
+		}
+	}
+
+	table_text += "</tr>";
+	//PRINT OUT DATA
+	//Loop through rows
+	for (var i = 0; i < max_length; i++){
+		//Loop through tables
+		table_text += "<tr>";
+		for (var table in results){
+			if (results[table]){
+				//Loop through cols
+				for (var col in results[table][0]){
+					table_text += "<td>";
+					if (i < results[table].length){
+						table_text += results[table][i][col];
+					}
+					table_text += "</td>";
+				}
+			}
+		}
+		table_text += "</tr>";
+	}
+
+	document.getElementById("result_table").innerHTML = table_text;
+	return true;
 };
