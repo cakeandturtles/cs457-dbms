@@ -1,0 +1,7 @@
+SELECT A1, B1, C1
+FROM A, B, C 
+WHERE A1 = B1 and A1 = C1;
+
+SELECT A1, B1, C1
+FROM A, B, C 
+WHERE A1 = A2;
