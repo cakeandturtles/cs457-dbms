@@ -1,0 +1,15 @@
+<table name="A">
+	<col name="A1"/>
+	<col name="A2"/>
+</table>
+<table name="B">
+	<col name="B1"/>
+	<col name="B2"/>
+	<col name="B3"/>
+</table>
+<table name="C">
+	<col name="C1"/>
+	<col name="C2"/>
+	<col name="C3"/>
+	<col name="C4"/>
+</table>

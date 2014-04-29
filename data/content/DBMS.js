@@ -1,17 +1,25 @@
 var query;
 
 var main = function(){
+	xml_object = ReadXML("metadata.xml");
+	for (var x in xml_object){
+		console.log("table: " + x);
+		for (var i = 0; i < xml_object[x].length; i++){
+			console.log("\tcol: " + xml_object[x][i].full_name);
+		}
+	}
+	
 	query = document.getElementById("query").innerHTML.toUpperCase();
 	console.log(query);
-	var queryObject = ParseQuery(query);
-	if (queryObject === null) return null;
+	var query_object = ParseQuery(query);
+	if (query_object === null) return null;
 	
-	for (var x in queryObject){
-		console.log(x + ": " + queryObject[x]);
+	for (var x in query_object){
+		console.log(x + ": " + query_object[x]);
 	}
-	var resultsObject = QueryData(queryObject);
-	if (resultsObject === null) return null;
-	PopulateTable(resultsObject);
+	var results_object = QueryData(query_object);
+	if (results_object === null) return null;
+	PopulateTable(results_object);
 }
 
 var ParseQuery = function(query){	
@@ -50,7 +58,7 @@ var ParseQuery = function(query){
 		return null;
 	}
 	
-	//files to load from (FROM THE FROM CLAUSE)
+	//files to load from (FROM THE FROM CLAUSE) //TODO:: Modify to be more flexible with XML
 	var load_a = (from_clause.indexOf(" A") > 0 || from_clause.indexOf(",A") > 0);
 	var load_b = (from_clause.indexOf(" B") > 0 || from_clause.indexOf(",B") > 0);
 	var load_c = (from_clause.indexOf(" C") > 0 || from_clause.indexOf(",C") > 0);
@@ -71,6 +79,7 @@ var ParseQuery = function(query){
 		return null;
 	}
 
+	//TODO:: MOdify to be more flexible with XML
 	return {
 		column_array: column_array,
 		load_a: load_a,
@@ -89,72 +98,57 @@ var QueryData = function(query){
 		return null;
 	}
 	
-	//Now, project selected columns (get rid of the rest...)
-	var all_cols = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "C4"];
-	for (var i = 0; i < query.column_array.length; i++){
-		var found_col = false;
-		for (var j = 0; j < all_cols.length; j++){
-			if (all_cols[j].trim() == query.column_array[i].trim()){
-				found_col = true;
-				break;
-			}
-		}
-		if (!found_col){
-			var error = "Query not properly formed.<br/><i>Invalid column in SELECT clause.</i>";
-			document.getElementById("result_table").innerHTML = error;
-			return null;
-		}
+	projected_data = ProjectData(query, selected_data);
+	if (projected_data === null){
+		var error = "Query not properly formed.<br/><i>Invalid column in SELECT clause.</i>";
+		document.getElementById("result_table").innerHTML = error;
+		return null;
 	}
-	
-	for (var table in selected_data){
-		if (selected_data[table]){
-			for (var col in selected_data[table][0]){
-				var found_col = false;
-				for (var i = 0; i < query.column_array.length; i++){
-					if (query.column_array[i].trim() === col.trim()){
-						found_col = true;
-					}
-				}
-				if (!found_col){
-					for (var i = 0; i < selected_data[table].length; i++){
-						delete selected_data[table][i][col];
-					}
-				}
-			}
-		}
-	}
-	return selected_data;
+	return projected_data;
 };
 
+//TODO:: Modify to be more flexible with xml
 var LoadFiles = function(query){
 	var a_data, b_data, c_data;
 	
 	//Figure out which files to load from, and then load them
 	//This loads data every time we query the database
 	//Maybe not the best!...
+	//ALSO THIS SYSTEM ONLY ASSUMES INTEGER COLUMN VALUES
 	if (query.load_a){
-		a_text = readTextFile("A.txt").split(/\n/);
+		a_text = StripNewLines(readTextFile("A.txt").split('\n'));
 		a_data = [];
 		for (var i = 0; i < a_text.length; i++){
-			var a_row = a_text[i].split(/\t/);
-			a_data.push({'A1': a_row[0], 'A2': a_row[1]});
+			var a_row = a_text[i].split('\t');
+			a_data.push({
+				'A1': parseInt(a_row[0]), 
+				'A2': parseInt(a_row[1])
+			});
 		}
 	}
 	if (query.load_b){
-		b_text = readTextFile("B.txt").split(/[ \n]+/);
+		b_text = StripNewLines(readTextFile("B.txt").split('\n'));
+		
 		b_data = [];
 		for (var i = 0; i < b_text.length; i++){
-			var b_row = b_text[i].split(/\t/);
-			b_data.push({'B1': b_row[0], 'B2': b_row[1], 'B3': b_row[2]});
+			var b_row = b_text[i].split('\t');
+			b_data.push({
+				'B1': parseInt(b_row[0]), 
+				'B2': parseInt(b_row[1]), 
+				'B3': parseInt(b_row[2])
+			});
 		}
 	}
 	if (query.load_c){
-		c_text = readTextFile("C.txt").split(/[ \n]+/);;
+		c_text = StripNewLines(readTextFile("C.txt").split('\n'));
 		c_data = [];
 		for (var i = 0; i < c_text.length; i++){
-			var c_row = c_text[i].split(/\t/);
+			var c_row = c_text[i].split('\t');
 			c_data.push({
-				'C1': c_row[0], 'C2': c_row[1], 'C3': c_row[2], 'C4': c_row[3]
+				'C1': parseInt(c_row[0]), 
+				'C2': parseInt(c_row[1]), 
+				'C3': parseInt(c_row[2]), 
+				'C4': parseInt(c_row[3])
 			});
 		}
 	}
@@ -182,6 +176,7 @@ var SelectData = function(query, raw_data){
 				}
 			}
 			
+			//SELECT BASED ON COLUMN VALUE
 			if (value){
 				new_table = table1.name;
 				refined_data[new_table] = [];
@@ -191,12 +186,19 @@ var SelectData = function(query, raw_data){
 					}
 				}
 				delete raw_data[table1.name];
-			}else if (table1.name !== table2.name){
+			}
+			//EQUIJOIN TWO TABLES
+			else if (table1.name !== table2.name){
 				new_table = table1.name + table2.name
 				refined_data[new_table] = [];
+				/*alert(new_table + ", elem0: " + elems[0] + ", elem1: " + elems[1]);*/
 				for (var j = 0; j < table1.table.length; j++){
 					for (var k = 0; k < table2.table.length; k++){
+						/*if (table1.table[j][elems[0]] == 22){
+							alert(table1.table[j][elems[0]] + " = " + table2.table[k][elems[1]] + "; " + (table1.table[j][elems[0]] == table2.table[k][elems[1]]));
+						}*/
 						if (table1.table[j][elems[0]] == table2.table[k][elems[1]]){
+							//alert(table1.table[j][elems[0]] + ", " + table2.table[k][elems[1]]);
 							var new_row = {};
 							for (var col in table1.table[j]){ 
 								new_row[col] = table1.table[j][col];
@@ -213,6 +215,7 @@ var SelectData = function(query, raw_data){
 				delete raw_data[table1.name];
 				delete raw_data[table2.name];
 			}
+			//EQUIJOIN SINGLE TABLE BETWEEN TWO OF ITS COLUMNS
 			else{
 				new_table = table1.name;
 				refined_data[new_table] = [];
@@ -239,7 +242,45 @@ var SelectData = function(query, raw_data){
 	return raw_data; //Not really raw anymore...
 }
 
+var ProjectData = function(query, selected_data){
+	//TODO:: Modify to be more flexible with xml
+	//Now, project selected columns (get rid of the rest...)
+	var all_cols = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "C4"];
+	for (var i = 0; i < query.column_array.length; i++){
+		var found_col = false;
+		for (var j = 0; j < all_cols.length; j++){
+			if (all_cols[j].trim() == query.column_array[i].trim()){
+				found_col = true;
+				break;
+			}
+		}
+		if (!found_col){
+			return null;
+		}
+	}
+	
+	for (var table in selected_data){
+		if (selected_data[table]){
+			for (var col in selected_data[table][0]){
+				var found_col = false;
+				for (var i = 0; i < query.column_array.length; i++){
+					if (query.column_array[i].trim() === col.trim()){
+						found_col = true;
+					}
+				}
+				if (!found_col){
+					for (var i = 0; i < selected_data[table].length; i++){
+						delete selected_data[table][i][col];
+					}
+				}
+			}
+		}
+	}
+	return selected_data;
+};
+
 var SearchForTable = function(data, col_name){
+	//TODO:: Modify to be more flexible with xml
 	//This can really only work because each table has unique column names
 	var all_cols = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "C4"];
 	var found_col = false;
