@@ -191,14 +191,9 @@ var SelectData = function(query, raw_data){
 			else if (table1.name !== table2.name){
 				new_table = table1.name + table2.name
 				refined_data[new_table] = [];
-				/*alert(new_table + ", elem0: " + elems[0] + ", elem1: " + elems[1]);*/
 				for (var j = 0; j < table1.table.length; j++){
 					for (var k = 0; k < table2.table.length; k++){
-						/*if (table1.table[j][elems[0]] == 22){
-							alert(table1.table[j][elems[0]] + " = " + table2.table[k][elems[1]] + "; " + (table1.table[j][elems[0]] == table2.table[k][elems[1]]));
-						}*/
 						if (table1.table[j][elems[0]] == table2.table[k][elems[1]]){
-							//alert(table1.table[j][elems[0]] + ", " + table2.table[k][elems[1]]);
 							var new_row = {};
 							for (var col in table1.table[j]){ 
 								new_row[col] = table1.table[j][col];
@@ -304,7 +299,9 @@ var SearchForTable = function(data, col_name){
 			}
 		}
 	}
-	return null;
+	//IF we get here it means that the column specified is valid,
+	//But just that it doesn't exist in any of the joined tables
+	return {name: '', table: [{col_name: null}]};
 };
 
 var PopulateTable = function(results){
